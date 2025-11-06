@@ -1,0 +1,558 @@
+{
+  "name": "Job Application Automation System",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -160
+      ],
+      "id": "ff89379f-3fe1-44da-9c83-d5b377cc3612",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fde4514e-a4c3-4d0a-985e-2a6f5235d560",
+              "name": "linkedIn Search URL",
+              "value": "https://www.linkedin.com/jobs/search/?currentJobId=4333080454&geoId=103644278&keywords=android%20app%20developer&origin=JOB_SEARCH_PAGE_SEARCH_BUTTON&refresh=true",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -128,
+        -160
+      ],
+      "id": "25cad76c-1b81-4836-a2f1-22ecaf13a99b",
+      "name": "Job Search URL"
+    },
+    {
+      "parameters": {
+        "batchSize": 20,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        304,
+        -160
+      ],
+      "id": "bb564d79-9c07-499f-94b2-ef8eb5500ebe",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "https://docs.google.com/document/d/1Fl66m0YEscLW1QxzpB-sK3xFHZxEAvHdHTqQ2qH7RVo/edit?tab=t.0#heading=h.9s7z4in69ezq"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        544,
+        -144
+      ],
+      "id": "bc226bbf-01af-4f6e-9f2b-6ea3ad26da6d",
+      "name": "Get Resume",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "RsM4JtuRyTXwhHdU",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9b4ce8cb-5b4b-49c0-8620-69e152e6a5f1",
+              "leftValue": "={{ $json.message.content.verdict }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        -144
+      ],
+      "id": "c1244f27-30cd-453d-829a-e0104f469a7a",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a helpful, intelligent job filtering assistant",
+              "role": "system"
+            },
+            {
+              "content": "=##Overview\nI'm looking for jobs, Your task is to filter then base on a list of attributions and skills that I have. Some jobs may not be relevant, which is why I want you to go through each one of them and let me know whether or not  I'm an OKAY fit.\n\n##Context\n\nBelow is my resume  \n\n{{ $json.content }}\n\n##Job description\n\n{{ $('Scrape job').item.json.descriptionText }}\n\nRespond in this Json format:\n\n{\"verdict\":\"true or false\",\"reason\":\"reasonForverdict\"}\n\nIf I'm a fit returb true\n\nIf I'm not a fit returb false\n"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        768,
+        -144
+      ],
+      "id": "4dc6a3ef-298b-42bd-b9ca-57705feff146",
+      "name": "Check Relevance",
+      "credentials": {
+        "openAiApi": {
+          "id": "yqkbRrGqobtyzEDJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a helpful, intelligent resume writing assistant that drafts high converting resumes based on jobs.\n\nThis resume will be added to a Google Doc, so write it in HTML format that I can easily copy/paste. Do not output any backticks (no'''). Your first characters should be <html>",
+              "role": "system"
+            },
+            {
+              "content": "=##Overview\nYou are a professional resume customization assistant.\n\nYour task is to carefully **update and tailor my existing resume** based on the provided **job description** — without changing or removing my personal details such as name, contact information, education, or past experiences.\n\nKeep my identity, career background, and structure the same.  \nOnly adjust the **summary, skills, and experience highlights** to match the job description and make the resume more relevant.\n\n\n##Job description\n\n{{ $('Scrape job').item.json.descriptionText }}\n\nBelow is my resume  \n\n{{ $('Get Resume').item.json.content }}\n\nRespond with only the costomized, updated resume-nothing else.\n\n- Keep my name, email, phone, and all personal info exactly as they are in my original resume.  \n- Do **not** invent or change any company names, education, or personal details.  \n- Only rewrite and optimize wording (summary, skills, and experience) to match the job requirements.  \n- Respond **only** with the customized resume in **HTML format** so that it can be directly added to a Google Doc.\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -320,
+        112
+      ],
+      "id": "192f7967-55a2-45e1-b47c-13ab7bdd55f8",
+      "name": "Customise Resume",
+      "credentials": {
+        "openAiApi": {
+          "id": "yqkbRrGqobtyzEDJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://www.googleapis.com/upload/drive/v3/files/{{ $json.id }}?uploadType=media",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDocsOAuth2Api",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"content-type\":\"text/html\"\n}",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ $('Customise Resume').item.json.message.content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        352,
+        112
+      ],
+      "id": "5931a265-cdd0-4656-9093-402b9526e64f",
+      "name": "HTTP Request",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "RsM4JtuRyTXwhHdU",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1SpW1ZCJ8t34lPWznciwYSrc-rWUl7yRVEmONujf_va8",
+          "mode": "list",
+          "cachedResultName": "Jobs Tracker DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SpW1ZCJ8t34lPWznciwYSrc-rWUl7yRVEmONujf_va8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1SpW1ZCJ8t34lPWznciwYSrc-rWUl7yRVEmONujf_va8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Job Post Link": "={{ $('Scrape job').item.json.link }}",
+            "Job title": "={{ $('Scrape job').item.json.title }}",
+            "Seniority Level": "={{ $('Scrape job').item.json.seniorityLevel }}",
+            "Posted At": "={{ $('Scrape job').item.json.postedAt }}",
+            "Company Name": "={{ $('Scrape job').item.json.companyName }}",
+            "Company Website": "={{ $('Scrape job').item.json.companyWebsite }}",
+            "Salary": "={{ $('Scrape job').item.json.salaryInfo[1] }}",
+            "Description": "={{ $('Scrape job').item.json.descriptionText }}",
+            "No Applicants": "={{ $('Scrape job').item.json.applicantsCount }}",
+            "Resume URL": "=https://docs.google.com/document/d/{{ $('Create Resume').item.json.id }}/edit",
+            "Application URL": "={{ $('Scrape job').item.json.applyUrl }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Job Post Link",
+              "displayName": "Job Post Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job title",
+              "displayName": "Job title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Seniority Level",
+              "displayName": "Seniority Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Posted At",
+              "displayName": "Posted At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company Name",
+              "displayName": "Company Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company Website",
+              "displayName": "Company Website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Salary",
+              "displayName": "Salary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Description",
+              "displayName": "Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "No Applicants",
+              "displayName": "No Applicants",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Resume URL",
+              "displayName": "Resume URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Application URL",
+              "displayName": "Application URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        800,
+        112
+      ],
+      "id": "85fe44e9-f9db-41ba-9f92-1620e3000ff1",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "LiybvDxoBygzbmxs",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorId": {
+          "__rl": true,
+          "value": "hKByXkMQaC5Qt9UMN",
+          "mode": "list",
+          "cachedResultName": "Linkedin Jobs Scraper - PPR (curious_coder/linkedin-jobs-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/hKByXkMQaC5Qt9UMN/input"
+        },
+        "customBody": "={\n    \"count\": 100,\n    \"scrapeCompany\": true,\n    \"urls\": [\n        \"{{ $json['linkedIn Search URL'] }}\"\n    ]\n}",
+        "timeout": {}
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        80,
+        -160
+      ],
+      "id": "3781a598-4cdf-481d-a454-ef30172a73e9",
+      "name": "Scrape job",
+      "credentials": {
+        "apifyApi": {
+          "id": "GeGwseFKhnebbUci",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "folderId": "default",
+        "title": "=CV-MTKHAN {{ $('Scrape job').item.json.companyName }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        32,
+        112
+      ],
+      "id": "a6cd4fe3-c6bb-4086-b03d-65a5e655ceb8",
+      "name": "Create Resume",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "RsM4JtuRyTXwhHdU",
+          "name": "Google Docs account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Job Search URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Search URL": {
+      "main": [
+        [
+          {
+            "node": "Scrape job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Get Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Resume": {
+      "main": [
+        [
+          {
+            "node": "Check Relevance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Customise Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Relevance": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customise Resume": {
+      "main": [
+        [
+          {
+            "node": "Create Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape job": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Resume": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b91295c2-2c66-4964-864a-ad61ec93a328",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "685f723332a1e834d232a0e692246c897f53c00559a99701b09c44b6fbf3f320"
+  },
+  "id": "Jp6bjg19aOs28tUc",
+  "tags": []
+}
